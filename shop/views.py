@@ -61,3 +61,18 @@ def category_delete_view(request, pk):
         category.delete()
         return redirect('categories_list')
     return render(request, 'shop/category_confirm_delete.html', {'category': category})
+
+def categories_view(request):
+    categories = Category.objects.all()
+    return render(request, 'shop/categories_list.html', {'categories': categories})
+
+def category_edit_view(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == 'POST':
+        form = CategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            form.save()
+            return redirect('categories_list')
+    else:
+        form = CategoryForm(instance=category)
+    return render(request, 'shop/category_edit.html', {'form': form, 'category': category})

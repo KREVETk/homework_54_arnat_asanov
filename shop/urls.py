@@ -7,9 +7,11 @@ urlpatterns = [
     path('products/<int:pk>/', views.product_view, name='product_detail'),
     path('products/add/', views.product_add_view, name='product_add'),
     path('products/<int:pk>/edit/', views.product_edit_view, name='product_edit'),
-    path('products/<int:pk>/delete/', views.product_delete_view, name='product_delete'),  # добавлен путь удаления
+    path('products/<int:pk>/delete/', views.product_delete_view, name='product_delete'),
     path('categories/add/', views.category_add_view, name='category_add'),
     path('categories/<int:pk>/', views.category_detail_view, name='category_detail'),
     path('categories/<int:pk>/delete/', views.category_delete_view, name='category_delete'),
+    path('categories/', views.categories_view, name='categories_list'),
+    path('categories/<int:pk>/edit/', views.category_edit_view, name='category_edit')
 ]
 
