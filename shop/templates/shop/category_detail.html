@@ -1,0 +1,9 @@
+{% extends 'shop/base.html' %}
+
+{% block content %}
+<h2>Категория: {{ category.name }}</h2>
+<p><strong>Описание:</strong> {{ category.description }}</p>
+
+<p><a href="{% url 'category_edit' category.id %}">Редактировать</a></p>
+<p><a href="{% url 'categories_list' %}">← Назад к списку категорий</a></p>
+{% endblock %}
