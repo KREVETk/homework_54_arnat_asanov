@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+  <h2>Категории</h2>
+  <a href="{% url 'category_add' %}" class="btn btn-success mb-3">Добавить категорию</a>
+  <ul class="list-group">
+    {% for category in categories %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+      {{ category.name }}
+      <span>
+        <a href="{% url 'category_edit' category.id %}" class="btn btn-sm btn-outline-primary me-2">Редактировать</a>
+        <form method="post" action="{% url 'category_delete' category.id %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+        </form>
+      </span>
+    </li>
+    {% empty %}
+    <li class="list-group-item">Нет категорий</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}
