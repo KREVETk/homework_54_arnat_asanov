@@ -9,7 +9,33 @@ def products_view(request):
     if query:
         products = products.filter(name__icontains=query)
     products = products.order_by('category__name', 'name')
-    return render(request, 'shop/products_list.html', {'products': products, 'query': query})
+
+    categories = Category.objects.all().order_by('name')
+
+    return render(request, 'shop/products_list.html', {
+        'products': products,
+        'query': query,
+        'categories': categories,
+        'selected_category': None,
+    })
+
+
+def products_by_category_view(request, category_name):
+    query = request.GET.get('q')
+    category = get_object_or_404(Category, name=category_name)
+    products = Product.objects.filter(category=category, stock__gte=1)
+    if query:
+        products = products.filter(name__icontains=query)
+    products = products.order_by('name')
+
+    categories = Category.objects.all().order_by('name')
+
+    return render(request, 'shop/products_list.html', {
+        'products': products,
+        'query': query,
+        'categories': categories,
+        'selected_category': category,
+    })
 
 
 def product_view(request, pk):
