@@ -4,12 +4,18 @@ from .forms import CategoryForm, ProductForm
 
 
 def products_view(request):
-    products = Product.objects.all()
-    return render(request, 'shop/products_list.html', {'products': products})
+    query = request.GET.get('q')
+    products = Product.objects.filter(stock__gte=1)
+    if query:
+        products = products.filter(name__icontains=query)
+    products = products.order_by('category__name', 'name')
+    return render(request, 'shop/products_list.html', {'products': products, 'query': query})
+
 
 def product_view(request, pk):
     product = get_object_or_404(Product, pk=pk)
     return render(request, 'shop/product_detail.html', {'product': product})
+
 
 def product_add_view(request):
     if request.method == 'POST':
@@ -19,7 +25,8 @@ def product_add_view(request):
             return redirect('product_detail', pk=product.pk)
     else:
         form = ProductForm()
-    return render(request, 'shop/product_add.html', {'form': form})
+    return render(request, 'shop/product_form.html', {'form': form})
+
 
 def product_edit_view(request, pk):
     product = get_object_or_404(Product, pk=pk)
@@ -30,7 +37,8 @@ def product_edit_view(request, pk):
             return redirect('product_detail', pk=product.pk)
     else:
         form = ProductForm(instance=product)
-    return render(request, 'shop/product_edit.html', {'form': form, 'product': product})
+    return render(request, 'shop/product_form.html', {'form': form, 'product': product})
+
 
 def product_delete_view(request, pk):
     product = get_object_or_404(Product, pk=pk)
@@ -39,21 +47,22 @@ def product_delete_view(request, pk):
         return redirect('products')
     return render(request, 'shop/product_confirm_delete.html', {'product': product})
 
-#
 
 def category_add_view(request):
     if request.method == 'POST':
         form = CategoryForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('category_add')
+            return redirect('categories_list')
     else:
         form = CategoryForm()
     return render(request, 'shop/category_add.html', {'form': form})
 
+
 def category_detail_view(request, pk):
     category = get_object_or_404(Category, pk=pk)
     return render(request, 'shop/category_detail.html', {'category': category})
+
 
 def category_delete_view(request, pk):
     category = get_object_or_404(Category, pk=pk)
@@ -62,9 +71,11 @@ def category_delete_view(request, pk):
         return redirect('categories_list')
     return render(request, 'shop/category_confirm_delete.html', {'category': category})
 
+
 def categories_view(request):
     categories = Category.objects.all()
     return render(request, 'shop/categories_list.html', {'categories': categories})
+
 
 def category_edit_view(request, pk):
     category = get_object_or_404(Category, pk=pk)
