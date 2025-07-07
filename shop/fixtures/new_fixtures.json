@@ -1,0 +1,116 @@
+[
+{
+  "model": "shop.category",
+  "pk": 1,
+  "fields": {
+    "name": "food",
+    "description": "",
+    "slug": "food"
+  }
+},
+{
+  "model": "shop.category",
+  "pk": 2,
+  "fields": {
+    "name": "accessories",
+    "description": "accessories",
+    "slug": "accessories"
+  }
+},
+{
+  "model": "shop.category",
+  "pk": 3,
+  "fields": {
+    "name": "else",
+    "description": "",
+    "slug": "else"
+  }
+},
+{
+  "model": "shop.category",
+  "pk": 4,
+  "fields": {
+    "name": "tech",
+    "description": "technical tech technicaly",
+    "slug": "tech"
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 1,
+  "fields": {
+    "name": "apple",
+    "description": "",
+    "category": 1,
+    "created_at": "2025-07-07T17:35:39.026Z",
+    "price": "15.00",
+    "stock": 10,
+    "image": "https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg"
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 2,
+  "fields": {
+    "name": "banana",
+    "description": "yummy banana",
+    "category": 1,
+    "created_at": "2025-07-07T17:36:15.430Z",
+    "price": "20.00",
+    "stock": 2,
+    "image": "https://upload.wikimedia.org/wikipedia/commons/8/8a/Banana-Single.jpg"
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 3,
+  "fields": {
+    "name": "notebook",
+    "description": "Высокая частота смены кадров\r\nЧастота обновления дисплея 144 Гц — это преимущество в динамичных играх. Высокая частота смены кадров обеспечивает плавность изображения и великолепный игровой процесс. Это позволяет быстрее реагировать на события в игре, повышая шансы на безоговорочную победу.",
+    "category": 4,
+    "created_at": "2025-07-07T17:39:13.346Z",
+    "price": "1000.00",
+    "stock": 1000,
+    "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8"
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 4,
+  "fields": {
+    "name": "uphone",
+    "description": "make logo with ur own photo!",
+    "category": 4,
+    "created_at": "2025-07-07T17:40:36.295Z",
+    "price": "2020.00",
+    "stock": 2,
+    "image": "https://upload.wikimedia.org/wikipedia/commons/3/3a/IPhone_14_Pro_Vector.svg"
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 5,
+  "fields": {
+    "name": "earbuds",
+    "description": "earbuds",
+    "category": 2,
+    "created_at": "2025-07-07T17:41:32.312Z",
+    "price": "1000.00",
+    "stock": 5,
+    "image": "https://images.pexels.com/photos/3394659/pexels-photo-3394659.jpeg"
+  }
+},
+{
+  "model": "shop.product",
+  "pk": 6,
+  "fields": {
+    "name": "smart watch",
+    "description": "modern watch",
+    "category": 2,
+    "created_at": "2025-07-07T17:44:55.647Z",
+    "price": "10.19",
+    "stock": 1,
+    "image": "https://images.pexels.com/photos/1051076/pexels-photo-1051076.jpeg"
+  }
+}
+]
