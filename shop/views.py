@@ -19,9 +19,9 @@ def products_view(request):
         'selected_category': None,
     })
 
-def products_by_category_view(request, category_name):
+def products_by_category_view(request, slug):
     query = request.GET.get('q')
-    category = get_object_or_404(Category, name=category_name)
+    category = get_object_or_404(Category, slug=slug)
     products = Product.objects.filter(category=category, stock__gte=1)
     if query:
         products = products.filter(name__icontains=query)

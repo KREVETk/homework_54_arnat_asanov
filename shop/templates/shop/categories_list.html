@@ -11,10 +11,7 @@
       </a>
       <span>
         <a href="{% url 'category_edit' category.id %}" class="btn btn-sm btn-outline-primary me-2">Редактировать</a>
-        <form method="post" action="{% url 'category_delete' category.id %}" style="display:inline;">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
-        </form>
+        <a href="{% url 'category_delete' category.id %}" class="btn btn-sm btn-outline-danger">Удалить</a>
       </span>
     </li>
     {% empty %}
