@@ -1,9 +1,8 @@
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
 from django.urls import reverse_lazy, reverse
-from django.shortcuts import get_object_or_404
-from .models import Product, Category
+from django.shortcuts import get_object_or_404, redirect, render
+from .models import Product, Category, CartItem
 from .forms import ProductForm
-
 
 
 class ProductListView(ListView):
@@ -117,3 +116,34 @@ class CategoryDeleteView(DeleteView):
     model = Category
     template_name = 'shop/category_confirm_delete.html'
     success_url = reverse_lazy('categories_list')
+
+
+class AddToCartView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        if product.stock == 0:
+            return redirect(request.META.get('HTTP_REFERER', reverse('products')))
+
+        cart_item, created = CartItem.objects.get_or_create(product=product)
+        if cart_item.quantity < product.stock:
+            cart_item.quantity += 1
+            cart_item.save()
+
+        return redirect(request.META.get('HTTP_REFERER', reverse('products')))
+
+
+class CartView(View):
+    def get(self, request):
+        cart_items = CartItem.objects.select_related('product').all()
+        total = sum(item.product.price * item.quantity for item in cart_items)
+        return render(request, 'shop/cart.html', {
+            'cart_items': cart_items,
+            'total': total
+        })
+
+
+class RemoveFromCartView(View):
+    def post(self, request, pk):
+        cart_item = get_object_or_404(CartItem, pk=pk)
+        cart_item.delete()
+        return redirect('cart')
