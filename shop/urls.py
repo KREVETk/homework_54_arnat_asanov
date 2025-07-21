@@ -1,20 +1,27 @@
 from django.urls import path
-from . import views
+from .views import (
+    ProductListView, ProductDetailView, ProductCreateView, ProductUpdateView, ProductDeleteView, ProductsByCategoryView,
+    CategoryListView, CategoryDetailView, CategoryCreateView, CategoryUpdateView, CategoryDeleteView,
+    AddToCartView, CartView, RemoveFromCartView, OrderCreateView  # добавил OrderCreateView
+)
 
 urlpatterns = [
-    path('', views.products_view, name='products'),
-    path('products/', views.products_view, name='products'),
-    path('products/category/<slug:slug>/', views.products_by_category_view, name='products_by_category'),
+    path('', ProductListView.as_view(), name='products'),
+    path('products/', ProductListView.as_view(), name='products'),
+    path('products/category/<slug:slug>/', ProductsByCategoryView.as_view(), name='products_by_category'),
+    path('products/add/', ProductCreateView.as_view(), name='product_add'),
+    path('products/<int:pk>/edit/', ProductUpdateView.as_view(), name='product_edit'),
+    path('products/<int:pk>/delete/', ProductDeleteView.as_view(), name='product_delete'),
+    path('products/<int:pk>/', ProductDetailView.as_view(), name='product_detail'),
 
-    path('products/add/', views.product_add_view, name='product_add'),
-    path('products/<int:pk>/edit/', views.product_edit_view, name='product_edit'),
-    path('products/<int:pk>/delete/', views.product_delete_view, name='product_delete'),
-    path('products/<int:pk>/', views.product_view, name='product_detail'),
+    path('categories/', CategoryListView.as_view(), name='categories_list'),
+    path('categories/add/', CategoryCreateView.as_view(), name='category_add'),
+    path('categories/<int:pk>/edit/', CategoryUpdateView.as_view(), name='category_edit'),
+    path('categories/<int:pk>/delete/', CategoryDeleteView.as_view(), name='category_delete'),
+    path('categories/<int:pk>/', CategoryDetailView.as_view(), name='category_detail'),
 
-
-    path('categories/', views.categories_view, name='categories_list'),
-    path('categories/add/', views.category_add_view, name='category_add'),
-    path('categories/<int:pk>/edit/', views.category_edit_view, name='category_edit'),
-    path('categories/<int:pk>/delete/', views.category_delete_view, name='category_delete'),
-    path('categories/<int:pk>/', views.category_detail_view, name='category_detail')
+    path('cart/', CartView.as_view(), name='cart'),
+    path('cart/add/<int:pk>/', AddToCartView.as_view(), name='add_to_cart'),
+    path('cart/remove/<int:pk>/', RemoveFromCartView.as_view(), name='remove_from_cart'),
+    path('cart/order/', OrderCreateView.as_view(), name='order_create')
 ]

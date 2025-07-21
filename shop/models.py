@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
+from django.core.exceptions import ValidationError
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -14,6 +16,7 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+
 class Product(models.Model):
     name = models.CharField(max_length=300)
     description = models.TextField(blank=True, null=True)
@@ -23,5 +26,47 @@ class Product(models.Model):
     stock = models.IntegerField(default=0)
     image = models.CharField(max_length=1000, blank=True)
 
+    def clean(self):
+        if self.stock < 0:
+            raise ValidationError({'stock': 'Остаток не может быть меньше 0'})
+
     def __str__(self):
         return self.name
+
+
+class CartItem(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='cart_items')
+    quantity = models.PositiveIntegerField(default=1)
+    session_key = models.CharField(max_length=40)
+
+    def clean(self):
+        if self.quantity < 1:
+            raise ValidationError('Количество товара в корзине должно быть не менее 1')
+        if self.quantity > self.product.stock:
+            raise ValidationError('Количество товара не может превышать остаток на складе')
+
+    def subtotal(self):
+        return self.product.price * self.quantity
+
+    def __str__(self):
+        return f'{self.product.name} — {self.quantity} шт.'
+
+
+class Order(models.Model):
+    username = models.CharField(max_length=150)
+    phone = models.CharField(max_length=30)
+    address = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    products = models.ManyToManyField(Product, through='OrderItem', related_name='orders')
+
+    def __str__(self):
+        return f"Заказ #{self.id} от {self.username} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='order_items')
+    quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.product.name} в заказе #{self.order.id} — {self.quantity} шт."

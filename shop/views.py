@@ -1,105 +1,219 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from .models import Product, Category
-from .forms import CategoryForm, ProductForm
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
+from django.urls import reverse_lazy, reverse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.http import HttpResponseBadRequest
+from .models import Product, Category, CartItem, Order, OrderItem
+from .forms import ProductForm, OrderForm
 
 
-def products_view(request):
-    query = request.GET.get('q')
-    products = Product.objects.filter(stock__gte=1)
-    if query:
-        products = products.filter(name__icontains=query)
-    products = products.order_by('category__name', 'name')
+class ProductListView(ListView):
+    model = Product
+    template_name = 'shop/products_list.html'
+    context_object_name = 'products'
+    paginate_by = 5
 
-    categories = Category.objects.all().order_by('name')
+    def get_queryset(self):
+        queryset = Product.objects.filter(stock__gte=1).order_by('category__name', 'name')
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(name__icontains=query)
+        return queryset
 
-    return render(request, 'shop/products_list.html', {
-        'products': products,
-        'query': query,
-        'categories': categories,
-        'selected_category': None,
-    })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['query'] = self.request.GET.get('q', '')
+        context['categories'] = Category.objects.all().order_by('name')
+        context['selected_category'] = None
+        return context
 
-def products_by_category_view(request, slug):
-    query = request.GET.get('q')
-    category = get_object_or_404(Category, slug=slug)
-    products = Product.objects.filter(category=category, stock__gte=1)
-    if query:
-        products = products.filter(name__icontains=query)
-    products = products.order_by('name')
 
-    categories = Category.objects.all().order_by('name')
+class ProductsByCategoryView(ListView):
+    model = Product
+    template_name = 'shop/products_list.html'
+    context_object_name = 'products'
+    paginate_by = 5
 
-    return render(request, 'shop/products_list.html', {
-        'products': products,
-        'query': query,
-        'categories': categories,
-        'selected_category': category,
-    })
+    def get_queryset(self):
+        slug = self.kwargs['slug']
+        category = get_object_or_404(Category, slug=slug)
+        queryset = Product.objects.filter(category=category, stock__gte=1).order_by('name')
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(name__icontains=query)
+        return queryset
 
-def product_view(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    return render(request, 'shop/product_detail.html', {'product': product})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        slug = self.kwargs['slug']
+        category = get_object_or_404(Category, slug=slug)
+        context['query'] = self.request.GET.get('q', '')
+        context['categories'] = Category.objects.all().order_by('name')
+        context['selected_category'] = category
+        return context
 
-def product_add_view(request):
-    if request.method == 'POST':
-        form = ProductForm(request.POST)
+
+class ProductDetailView(DetailView):
+    model = Product
+    template_name = 'shop/product_detail.html'
+    context_object_name = 'product'
+
+
+class ProductCreateView(CreateView):
+    model = Product
+    form_class = ProductForm
+    template_name = 'shop/product_form.html'
+
+    def get_success_url(self):
+        return reverse('product_detail', kwargs={'pk': self.object.pk})
+
+
+class ProductUpdateView(UpdateView):
+    model = Product
+    form_class = ProductForm
+    template_name = 'shop/product_form.html'
+
+    def get_success_url(self):
+        return reverse('product_detail', kwargs={'pk': self.object.pk})
+
+
+class ProductDeleteView(DeleteView):
+    model = Product
+    template_name = 'shop/product_confirm_delete.html'
+    success_url = reverse_lazy('products')
+
+
+class CategoryListView(ListView):
+    model = Category
+    template_name = 'shop/categories_list.html'
+    context_object_name = 'categories'
+    ordering = ['name']
+
+
+class CategoryDetailView(DetailView):
+    model = Category
+    template_name = 'shop/category_detail.html'
+    context_object_name = 'category'
+
+
+class CategoryCreateView(CreateView):
+    model = Category
+    fields = ['name', 'slug']
+    template_name = 'shop/category_form.html'
+
+    def get_success_url(self):
+        return reverse('category_detail', kwargs={'pk': self.object.pk})
+
+
+class CategoryUpdateView(UpdateView):
+    model = Category
+    fields = ['name', 'slug']
+    template_name = 'shop/category_form.html'
+
+    def get_success_url(self):
+        return reverse('category_detail', kwargs={'pk': self.object.pk})
+
+
+class CategoryDeleteView(DeleteView):
+    model = Category
+    template_name = 'shop/category_confirm_delete.html'
+    success_url = reverse_lazy('categories_list')
+
+
+class AddToCartView(View):
+    def post(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        quantity = request.POST.get('quantity')
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                return HttpResponseBadRequest("Количество должно быть больше 0")
+        except (ValueError, TypeError):
+            return HttpResponseBadRequest("Некорректное количество")
+
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        cart_item, created = CartItem.objects.get_or_create(
+            product=product,
+            session_key=session_key,
+            defaults={'quantity': 0}
+        )
+
+        new_quantity = cart_item.quantity + quantity
+        if new_quantity > product.stock:
+            new_quantity = product.stock
+
+        cart_item.quantity = new_quantity
+        cart_item.save()
+        return redirect(request.META.get('HTTP_REFERER', reverse('products')))
+
+
+class RemoveFromCartView(View):
+    def post(self, request, pk):
+        session_key = request.session.session_key
+        if not session_key:
+            return redirect('cart')
+
+        cart_item = get_object_or_404(CartItem, pk=pk, session_key=session_key)
+
+        if cart_item.quantity > 1:
+            cart_item.quantity -= 1
+            cart_item.save()
+        else:
+            cart_item.delete()
+
+        return redirect('cart')
+
+
+class CartView(View):
+    def get(self, request):
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        cart_items = CartItem.objects.filter(session_key=session_key).select_related('product')
+        total = sum(item.subtotal() for item in cart_items)
+
+        from .forms import OrderForm
+        order_form = OrderForm()
+
+        return render(request, 'shop/cart.html', {
+            'cart_items': cart_items,
+            'total': total,
+            'order_form': order_form,
+        })
+
+
+class OrderCreateView(View):
+    def post(self, request):
+        session_key = request.session.session_key
+        if not session_key:
+            return redirect('cart')
+
+        cart_items = CartItem.objects.filter(session_key=session_key).select_related('product')
+        if not cart_items.exists():
+            return redirect('cart')
+
+        form = OrderForm(request.POST)
         if form.is_valid():
-            product = form.save()
-            return redirect('product_detail', pk=product.pk)
-    else:
-        form = ProductForm()
-    return render(request, 'shop/product_form.html', {'form': form})
+            order = form.save()
 
-def product_edit_view(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    if request.method == 'POST':
-        form = ProductForm(request.POST, instance=product)
-        if form.is_valid():
-            form.save()
-            return redirect('product_detail', pk=product.pk)
-    else:
-        form = ProductForm(instance=product)
-    return render(request, 'shop/product_form.html', {'form': form, 'product': product})
+            order_items = [
+                OrderItem(order=order, product=item.product, quantity=item.quantity)
+                for item in cart_items
+            ]
+            OrderItem.objects.bulk_create(order_items)
 
-def product_delete_view(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    if request.method == 'POST':
-        product.delete()
-        return redirect('products')
-    return render(request, 'shop/product_confirm_delete.html', {'product': product})
+            cart_items.delete()
 
-def category_add_view(request):
-    if request.method == 'POST':
-        form = CategoryForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect('categories_list')
-    else:
-        form = CategoryForm()
-    return render(request, 'shop/category_add.html', {'form': form})
-
-def category_detail_view(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    return render(request, 'shop/category_detail.html', {'category': category})
-
-def category_delete_view(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    if request.method == 'POST':
-        category.delete()
-        return redirect('categories_list')
-    return render(request, 'shop/category_confirm_delete.html', {'category': category})
-
-def categories_view(request):
-    categories = Category.objects.all()
-    return render(request, 'shop/categories_list.html', {'categories': categories})
-
-def category_edit_view(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    if request.method == 'POST':
-        form = CategoryForm(request.POST, instance=category)
-        if form.is_valid():
-            form.save()
-            return redirect('categories_list')
-    else:
-        form = CategoryForm(instance=category)
-    return render(request, 'shop/category_edit.html', {'form': form, 'category': category})
+            return redirect('products')
+        else:
+            total = sum(item.subtotal() for item in cart_items)
+            return render(request, 'shop/cart.html', {
+                'cart_items': cart_items,
+                'total': total,
+                'order_form': form,
+            })
