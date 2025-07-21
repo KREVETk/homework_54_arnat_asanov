@@ -1,6 +1,7 @@
 from django import forms
 from .models import Product, Category
 
+
 class ProductForm(forms.ModelForm):
     stock = forms.IntegerField(min_value=0, label='Остаток')
     price = forms.DecimalField(max_digits=7, decimal_places=2, label='Цена')
@@ -9,10 +10,11 @@ class ProductForm(forms.ModelForm):
         model = Product
         fields = ['name', 'description', 'category', 'price', 'stock', 'image']
 
+
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'slug']
 
 
 class ProductSearchForm(forms.Form):
