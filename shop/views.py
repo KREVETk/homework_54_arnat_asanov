@@ -2,8 +2,8 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponseBadRequest
-from .models import Product, Category, CartItem
-from .forms import ProductForm
+from .models import Product, Category, CartItem, Order, OrderItem
+from .forms import ProductForm, OrderForm
 
 
 class ProductListView(ListView):
@@ -177,7 +177,43 @@ class CartView(View):
         cart_items = CartItem.objects.filter(session_key=session_key).select_related('product')
         total = sum(item.subtotal() for item in cart_items)
 
+        from .forms import OrderForm
+        order_form = OrderForm()
+
         return render(request, 'shop/cart.html', {
             'cart_items': cart_items,
-            'total': total
+            'total': total,
+            'order_form': order_form,
         })
+
+
+class OrderCreateView(View):
+    def post(self, request):
+        session_key = request.session.session_key
+        if not session_key:
+            return redirect('cart')
+
+        cart_items = CartItem.objects.filter(session_key=session_key).select_related('product')
+        if not cart_items.exists():
+            return redirect('cart')
+
+        form = OrderForm(request.POST)
+        if form.is_valid():
+            order = form.save()
+
+            order_items = [
+                OrderItem(order=order, product=item.product, quantity=item.quantity)
+                for item in cart_items
+            ]
+            OrderItem.objects.bulk_create(order_items)
+
+            cart_items.delete()
+
+            return redirect('products')
+        else:
+            total = sum(item.subtotal() for item in cart_items)
+            return render(request, 'shop/cart.html', {
+                'cart_items': cart_items,
+                'total': total,
+                'order_form': form,
+            })
