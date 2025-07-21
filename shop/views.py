@@ -1,105 +1,119 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse_lazy, reverse
+from django.shortcuts import get_object_or_404
 from .models import Product, Category
-from .forms import CategoryForm, ProductForm
+from .forms import ProductForm
 
 
-def products_view(request):
-    query = request.GET.get('q')
-    products = Product.objects.filter(stock__gte=1)
-    if query:
-        products = products.filter(name__icontains=query)
-    products = products.order_by('category__name', 'name')
 
-    categories = Category.objects.all().order_by('name')
+class ProductListView(ListView):
+    model = Product
+    template_name = 'shop/products_list.html'
+    context_object_name = 'products'
+    paginate_by = 5
 
-    return render(request, 'shop/products_list.html', {
-        'products': products,
-        'query': query,
-        'categories': categories,
-        'selected_category': None,
-    })
+    def get_queryset(self):
+        queryset = Product.objects.filter(stock__gte=1).order_by('category__name', 'name')
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(name__icontains=query)
+        return queryset
 
-def products_by_category_view(request, slug):
-    query = request.GET.get('q')
-    category = get_object_or_404(Category, slug=slug)
-    products = Product.objects.filter(category=category, stock__gte=1)
-    if query:
-        products = products.filter(name__icontains=query)
-    products = products.order_by('name')
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['query'] = self.request.GET.get('q', '')
+        context['categories'] = Category.objects.all().order_by('name')
+        context['selected_category'] = None
+        return context
 
-    categories = Category.objects.all().order_by('name')
 
-    return render(request, 'shop/products_list.html', {
-        'products': products,
-        'query': query,
-        'categories': categories,
-        'selected_category': category,
-    })
+class ProductsByCategoryView(ListView):
+    model = Product
+    template_name = 'shop/products_list.html'
+    context_object_name = 'products'
+    paginate_by = 5
 
-def product_view(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    return render(request, 'shop/product_detail.html', {'product': product})
+    def get_queryset(self):
+        slug = self.kwargs['slug']
+        category = get_object_or_404(Category, slug=slug)
+        queryset = Product.objects.filter(category=category, stock__gte=1).order_by('name')
+        query = self.request.GET.get('q')
+        if query:
+            queryset = queryset.filter(name__icontains=query)
+        return queryset
 
-def product_add_view(request):
-    if request.method == 'POST':
-        form = ProductForm(request.POST)
-        if form.is_valid():
-            product = form.save()
-            return redirect('product_detail', pk=product.pk)
-    else:
-        form = ProductForm()
-    return render(request, 'shop/product_form.html', {'form': form})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        slug = self.kwargs['slug']
+        category = get_object_or_404(Category, slug=slug)
+        context['query'] = self.request.GET.get('q', '')
+        context['categories'] = Category.objects.all().order_by('name')
+        context['selected_category'] = category
+        return context
 
-def product_edit_view(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    if request.method == 'POST':
-        form = ProductForm(request.POST, instance=product)
-        if form.is_valid():
-            form.save()
-            return redirect('product_detail', pk=product.pk)
-    else:
-        form = ProductForm(instance=product)
-    return render(request, 'shop/product_form.html', {'form': form, 'product': product})
 
-def product_delete_view(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    if request.method == 'POST':
-        product.delete()
-        return redirect('products')
-    return render(request, 'shop/product_confirm_delete.html', {'product': product})
+class ProductDetailView(DetailView):
+    model = Product
+    template_name = 'shop/product_detail.html'
+    context_object_name = 'product'
 
-def category_add_view(request):
-    if request.method == 'POST':
-        form = CategoryForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect('categories_list')
-    else:
-        form = CategoryForm()
-    return render(request, 'shop/category_add.html', {'form': form})
 
-def category_detail_view(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    return render(request, 'shop/category_detail.html', {'category': category})
+class ProductCreateView(CreateView):
+    model = Product
+    form_class = ProductForm
+    template_name = 'shop/product_form.html'
 
-def category_delete_view(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    if request.method == 'POST':
-        category.delete()
-        return redirect('categories_list')
-    return render(request, 'shop/category_confirm_delete.html', {'category': category})
+    def get_success_url(self):
+        return reverse('product_detail', kwargs={'pk': self.object.pk})
 
-def categories_view(request):
-    categories = Category.objects.all()
-    return render(request, 'shop/categories_list.html', {'categories': categories})
 
-def category_edit_view(request, pk):
-    category = get_object_or_404(Category, pk=pk)
-    if request.method == 'POST':
-        form = CategoryForm(request.POST, instance=category)
-        if form.is_valid():
-            form.save()
-            return redirect('categories_list')
-    else:
-        form = CategoryForm(instance=category)
-    return render(request, 'shop/category_edit.html', {'form': form, 'category': category})
+class ProductUpdateView(UpdateView):
+    model = Product
+    form_class = ProductForm
+    template_name = 'shop/product_form.html'
+
+    def get_success_url(self):
+        return reverse('product_detail', kwargs={'pk': self.object.pk})
+
+
+class ProductDeleteView(DeleteView):
+    model = Product
+    template_name = 'shop/product_confirm_delete.html'
+    success_url = reverse_lazy('products')
+
+
+class CategoryListView(ListView):
+    model = Category
+    template_name = 'shop/categories_list.html'
+    context_object_name = 'categories'
+    ordering = ['name']
+
+
+class CategoryDetailView(DetailView):
+    model = Category
+    template_name = 'shop/category_detail.html'
+    context_object_name = 'category'
+
+
+class CategoryCreateView(CreateView):
+    model = Category
+    fields = ['name', 'slug']
+    template_name = 'shop/category_form.html'
+
+    def get_success_url(self):
+        return reverse('category_detail', kwargs={'pk': self.object.pk})
+
+
+class CategoryUpdateView(UpdateView):
+    model = Category
+    fields = ['name', 'slug']
+    template_name = 'shop/category_form.html'
+
+    def get_success_url(self):
+        return reverse('category_detail', kwargs={'pk': self.object.pk})
+
+
+class CategoryDeleteView(DeleteView):
+    model = Category
+    template_name = 'shop/category_confirm_delete.html'
+    success_url = reverse_lazy('categories_list')
