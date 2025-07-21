@@ -7,17 +7,17 @@ admin.site.register(Product)
 admin.site.register(CartItem)
 
 
-@admin.register(OrderItem)
-class OrderItemAdmin(admin.TabularInline):
+class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
     readonly_fields = ('product', 'quantity')
+
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ('id', 'username', 'phone', 'created_at')
     ordering = ('-created_at',)
-    inlines = [OrderItemAdmin]
+    inlines = [OrderItemInline]
     readonly_fields = ('created_at',)
 
 
