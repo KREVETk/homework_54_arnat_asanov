@@ -50,3 +50,23 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f'{self.product.name} — {self.quantity} шт.'
+
+
+class Order(models.Model):
+    username = models.CharField(max_length=150)
+    phone = models.CharField(max_length=30)
+    address = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    products = models.ManyToManyField(Product, through='OrderItem', related_name='orders')
+
+    def __str__(self):
+        return f"Заказ #{self.id} от {self.username} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='order_items')
+    quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.product.name} в заказе #{self.order.id} — {self.quantity} шт."

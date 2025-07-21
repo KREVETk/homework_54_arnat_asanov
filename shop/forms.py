@@ -24,3 +24,9 @@ class ProductSearchForm(forms.Form):
 class AddToCartForm(forms.Form):
     product_id = forms.IntegerField(widget=forms.HiddenInput)
     quantity = forms.IntegerField(min_value=1, label='Количество')
+
+
+class OrderForm(forms.Form):
+    username = forms.CharField(max_length=150, label='Имя', required=True)
+    phone = forms.CharField(max_length=30, label='Телефон', required=True)
+    address = forms.CharField(max_length=500, label='Адрес', required=True, widget=forms.Textarea(attrs={'rows': 2}))
