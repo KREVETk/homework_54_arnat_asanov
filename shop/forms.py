@@ -19,3 +19,8 @@ class CategoryForm(forms.ModelForm):
 
 class ProductSearchForm(forms.Form):
     query = forms.CharField(required=False, label='Поиск по названию')
+
+
+class AddToCartForm(forms.Form):
+    product_id = forms.IntegerField(widget=forms.HiddenInput)
+    quantity = forms.IntegerField(min_value=1, label='Количество')

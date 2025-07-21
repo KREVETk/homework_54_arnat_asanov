@@ -1,6 +1,7 @@
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.http import HttpResponseBadRequest
 from .models import Product, Category, CartItem
 from .forms import ProductForm
 
@@ -121,29 +122,62 @@ class CategoryDeleteView(DeleteView):
 class AddToCartView(View):
     def post(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
-        if product.stock == 0:
-            return redirect(request.META.get('HTTP_REFERER', reverse('products')))
+        quantity = request.POST.get('quantity')
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                return HttpResponseBadRequest("Количество должно быть больше 0")
+        except (ValueError, TypeError):
+            return HttpResponseBadRequest("Некорректное количество")
 
-        cart_item, created = CartItem.objects.get_or_create(product=product)
-        if cart_item.quantity < product.stock:
-            cart_item.quantity += 1
-            cart_item.save()
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
 
+        cart_item, created = CartItem.objects.get_or_create(
+            product=product,
+            session_key=session_key,
+            defaults={'quantity': 0}
+        )
+
+        new_quantity = cart_item.quantity + quantity
+        if new_quantity > product.stock:
+            new_quantity = product.stock
+
+        cart_item.quantity = new_quantity
+        cart_item.save()
         return redirect(request.META.get('HTTP_REFERER', reverse('products')))
-
-
-class CartView(View):
-    def get(self, request):
-        cart_items = CartItem.objects.select_related('product').all()
-        total = sum(item.product.price * item.quantity for item in cart_items)
-        return render(request, 'shop/cart.html', {
-            'cart_items': cart_items,
-            'total': total
-        })
 
 
 class RemoveFromCartView(View):
     def post(self, request, pk):
-        cart_item = get_object_or_404(CartItem, pk=pk)
-        cart_item.delete()
+        session_key = request.session.session_key
+        if not session_key:
+            return redirect('cart')
+
+        cart_item = get_object_or_404(CartItem, pk=pk, session_key=session_key)
+
+        if cart_item.quantity > 1:
+            cart_item.quantity -= 1
+            cart_item.save()
+        else:
+            cart_item.delete()
+
         return redirect('cart')
+
+
+class CartView(View):
+    def get(self, request):
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        cart_items = CartItem.objects.filter(session_key=session_key).select_related('product')
+        total = sum(item.subtotal() for item in cart_items)
+
+        return render(request, 'shop/cart.html', {
+            'cart_items': cart_items,
+            'total': total
+        })

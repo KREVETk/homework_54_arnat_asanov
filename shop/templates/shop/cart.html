@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+  <h1 class="mb-4">Корзина</h1>
+
+  {% if cart_items %}
+    <ul class="list-group mb-4">
+      {% for item in cart_items %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ item.product.name }}</strong> <br>
+            Цена: {{ item.product.price }} сом × {{ item.quantity }} = <strong>{{ item.product.price|floatformat:2|add:""|floatformat:2|floatformat }} × {{ item.quantity }} = {{ item.product.price|floatformat:2|add:""|floatformat|floatformat }} сом</strong>
+          </div>
+          <form method="post" action="{% url 'remove_from_cart' item.product.id %}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="remove_one" value="1">
+            <button type="submit" class="btn btn-danger btn-sm">Удалить 1 шт.</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <a href="#" class="btn btn-primary">Перейти к оформлению</a>
+  {% else %}
+    <p>Ваша корзина пуста.</p>
+  {% endif %}
+</div>
+{% endblock %}
