@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -6,7 +8,28 @@ from .models import Product, Category, CartItem, Order, OrderItem
 from .forms import ProductForm, OrderForm
 
 
-class ProductListView(ListView):
+class CategoryContextMixin:
+    def get_category_context(self):
+        return {
+            'query': self.request.GET.get('q', ''),
+            'categories': Category.objects.all().order_by('name'),
+        }
+
+
+def get_or_create_session_key(request):
+    if not request.session.session_key:
+        request.session.create()
+    return request.session.session_key
+
+
+def get_filtered_products(queryset, request):
+    query = request.GET.get('q')
+    if query:
+        queryset = queryset.filter(name__icontains=query)
+    return queryset
+
+
+class ProductListView(CategoryContextMixin, ListView):
     model = Product
     template_name = 'shop/products_list.html'
     context_object_name = 'products'
@@ -14,41 +37,30 @@ class ProductListView(ListView):
 
     def get_queryset(self):
         queryset = Product.objects.filter(stock__gte=1).order_by('category__name', 'name')
-        query = self.request.GET.get('q')
-        if query:
-            queryset = queryset.filter(name__icontains=query)
-        return queryset
+        return get_filtered_products(queryset, self.request)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['query'] = self.request.GET.get('q', '')
-        context['categories'] = Category.objects.all().order_by('name')
+        context.update(self.get_category_context())
         context['selected_category'] = None
         return context
 
 
-class ProductsByCategoryView(ListView):
+class ProductsByCategoryView(CategoryContextMixin, ListView):
     model = Product
     template_name = 'shop/products_list.html'
     context_object_name = 'products'
     paginate_by = 5
 
     def get_queryset(self):
-        slug = self.kwargs['slug']
-        category = get_object_or_404(Category, slug=slug)
-        queryset = Product.objects.filter(category=category, stock__gte=1).order_by('name')
-        query = self.request.GET.get('q')
-        if query:
-            queryset = queryset.filter(name__icontains=query)
-        return queryset
+        self.category = get_object_or_404(Category, slug=self.kwargs['slug'])
+        queryset = Product.objects.filter(category=self.category, stock__gte=1).order_by('name')
+        return get_filtered_products(queryset, self.request)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        slug = self.kwargs['slug']
-        category = get_object_or_404(Category, slug=slug)
-        context['query'] = self.request.GET.get('q', '')
-        context['categories'] = Category.objects.all().order_by('name')
-        context['selected_category'] = category
+        context.update(self.get_category_context())
+        context['selected_category'] = self.category
         return context
 
 
@@ -130,12 +142,9 @@ class AddToCartView(View):
         except (ValueError, TypeError):
             return HttpResponseBadRequest("Некорректное количество")
 
-        session_key = request.session.session_key
-        if not session_key:
-            request.session.create()
-            session_key = request.session.session_key
+        session_key = get_or_create_session_key(request)
 
-        cart_item, created = CartItem.objects.get_or_create(
+        cart_item, _ = CartItem.objects.get_or_create(
             product=product,
             session_key=session_key,
             defaults={'quantity': 0}
@@ -143,24 +152,31 @@ class AddToCartView(View):
 
         new_quantity = cart_item.quantity + quantity
         if new_quantity > product.stock:
-            new_quantity = product.stock
+            cart_item.quantity = product.stock
+        else:
+            cart_item.quantity = new_quantity
 
-        cart_item.quantity = new_quantity
-        cart_item.save()
+        try:
+            cart_item.full_clean()
+            cart_item.save()
+        except ValidationError as e:
+            return HttpResponseBadRequest(e.messages)
+
         return redirect(request.META.get('HTTP_REFERER', reverse('products')))
 
 
 class RemoveFromCartView(View):
     def post(self, request, pk):
-        session_key = request.session.session_key
-        if not session_key:
-            return redirect('cart')
-
+        session_key = get_or_create_session_key(request)
         cart_item = get_object_or_404(CartItem, pk=pk, session_key=session_key)
 
         if cart_item.quantity > 1:
             cart_item.quantity -= 1
-            cart_item.save()
+            try:
+                cart_item.full_clean()
+                cart_item.save()
+            except ValidationError as e:
+                return HttpResponseBadRequest(e.messages)
         else:
             cart_item.delete()
 
@@ -169,46 +185,33 @@ class RemoveFromCartView(View):
 
 class CartView(View):
     def get(self, request):
-        session_key = request.session.session_key
-        if not session_key:
-            request.session.create()
-            session_key = request.session.session_key
-
+        session_key = get_or_create_session_key(request)
         cart_items = CartItem.objects.filter(session_key=session_key).select_related('product')
         total = sum(item.subtotal() for item in cart_items)
-
-        from .forms import OrderForm
-        order_form = OrderForm()
-
         return render(request, 'shop/cart.html', {
             'cart_items': cart_items,
             'total': total,
-            'order_form': order_form,
+            'order_form': OrderForm(),
         })
 
 
 class OrderCreateView(View):
+    @transaction.atomic
     def post(self, request):
-        session_key = request.session.session_key
-        if not session_key:
-            return redirect('cart')
-
+        session_key = get_or_create_session_key(request)
         cart_items = CartItem.objects.filter(session_key=session_key).select_related('product')
+
         if not cart_items.exists():
             return redirect('cart')
 
         form = OrderForm(request.POST)
         if form.is_valid():
             order = form.save()
-
-            order_items = [
-                OrderItem(order=order, product=item.product, quantity=item.quantity)
-                for item in cart_items
-            ]
-            OrderItem.objects.bulk_create(order_items)
-
+            for item in cart_items:
+                OrderItem.objects.create(order=order, product=item.product, quantity=item.quantity)
+                item.product.stock -= item.quantity
+                item.product.save()
             cart_items.delete()
-
             return redirect('products')
         else:
             total = sum(item.subtotal() for item in cart_items)
